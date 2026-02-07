@@ -17,13 +17,13 @@
 4. **Emphasise consistency** and routine rather than lifestyle transformation.
 5. Encourage moderate daily movement through **personalised nudges**.
 
-## 🛠️ Tools & Methods
+## Tools & Methods
 
 - **Platform:** R (tidyverse, lubridate, scales)
 - **Dataset:** FitBit Fitness Tracker Data (30+ users, March-May 2016)
 - **Process:** Data cleaning → exploratory analysis → visualization → actionable insights
 
-## 📁 Project Files
+## Project Files
 
 - **[Full Case Study](CASE_STUDY.md)** — complete methodology and analysis phases
 - **[R Analysis Code](analysis.R)** — data processing and visualization scripts

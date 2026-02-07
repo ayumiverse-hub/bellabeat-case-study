@@ -1,53 +1,34 @@
 # Bellabeat Case Study: Smart Device Usage Analysis
 
-Analysis of FitBit tracker data to identify usage trends and inform Bellabeat's marketing strategy for their Leaf smart device.
-
-**[📊 View Full Report](bellabeat-analysis.html)**
-
-## Project Overview
-
-**Business Question:** What are the trends in smart device usage, and how can these insights guide Bellabeat's marketing strategy?
-
-**Data Source:** FitBit Fitness Tracker Data (30+ users, March-May 2016)
-
-**Tools Used:** R, RStudio, tidyverse, lubridate
+**Business objective:** Identify trends in smart device usage to guide Bellabeat's marketing strategy for the Leaf wellness tracker.
 
 ## Key Findings
 
-### Device Engagement
-
-- **11% of logged days** show device non-wear, indicating engagement drop-off
-- User engagement varies widely: some users log consistently (40+ days), others drop off quickly (<10 days)
-
-### Activity Patterns
-
-- **Median daily steps: 7,881** on valid wear days
-- **72.8% of days** show moderate-to-high activity (≥5,000 steps)
-- **Light activity dominates:** Users average 3.5 hours of light activity vs. only 6 minutes of vigorous activity per day
-- Activity patterns are consistent between weekdays and weekends
-
-### Sleep Tracking
-
-- **31% of users never track sleep** despite tracking activity
-- Among sleep trackers, engagement is inconsistent (1-31 nights logged)
-- Average sleep duration: 7 hours with 92% efficiency
+- **Engagement varies widely** — median tracking duration of 39 days, but 11% of days show zero activity (device not worn)
+- **Users prioritize lifestyle movement** — 37.6% achieve moderate activity (5-10k steps), dominated by light activity rather than intense workouts
+- **Sleep tracking underutilized** — only 68% of activity users logged sleep data, with just 32% of activity days including sleep records
+- **Routines stay consistent** — minimal difference between weekday and weekend behaviour (~8,268 vs 8,178 steps)
 
 ## Recommendations
 
-1. **Improve engagement:** Develop re-engagement features for users who show signs of dropping off
-2. **Celebrate light activity:** Market the value of everyday movement, not just intense workouts
-3. **Encourage sleep tracking:** Educate users on sleep tracking benefits and simplify the process
-4. **Focus on consistency:** Help users build steady habits rather than sporadic bursts of activity
+1. Position Leaf as a device designed for **long-term habit formation**.
+2. Target **“lifestyle wellness”** users rather than fitness enthusiasts.
+3. Promote **sleep tracking** as a core feature.
+4. **Emphasise consistency** and routine rather than lifestyle transformation.
+5. Encourage moderate daily movement through **personalised nudges**.
 
-## Files in This Repository
+## 🛠️ Tools & Methods
 
-- `bellabeat-analysis.html` — Full analysis report with code and visualizations
-- `bellabeat-analysis.Rmd` — R Markdown source file
-- `/data` — Raw datasets (FitBit tracker data)
+- **Platform:** R (tidyverse, lubridate, scales)
+- **Dataset:** FitBit Fitness Tracker Data (30+ users, March-May 2016)
+- **Process:** Data cleaning → exploratory analysis → visualization → actionable insights
 
-## About
+## 📁 Project Files
 
-This case study was completed as part of the Google Data Analytics Certificate capstone project.
+- **[Full Case Study](CASE_STUDY.md)** — complete methodology and analysis phases
+- **[R Analysis Code](analysis.R)** — data processing and visualization scripts
+- **[Visualizations](visualizations/)** — ggplot2 charts
 
-**Author:** Ayu  
-**Date:** February 2025
+---
+
+**Note:** This analysis was completed as part of the Google Data Analytics Certificate capstone project.

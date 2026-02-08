@@ -25,9 +25,9 @@
 
 ## Project Files
 
-- **[Full Case Study](CASE_STUDY.md)** — complete methodology and analysis phases
-- **[R Analysis Code](analysis.R)** — data processing and visualization scripts
-- **[Visualizations](visualizations/)** — ggplot2 charts
+- **[Full Case Study](bellabeat_case_study_full.md)** — complete methodology and analysis phases
+- **[R Analysis Code](analysis.rmd)** — data processing and visualization scripts
+- **[Visualisations](visualisations/)** — ggplot2 charts
 
 ---
 

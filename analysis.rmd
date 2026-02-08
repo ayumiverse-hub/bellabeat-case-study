@@ -1,0 +1,491 @@
+---
+title: "Bellabeat Case Study: FitBit Data Analysis"
+author: "Ayu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 1. Setup
+
+## Install and Load Packages
+```{r install-packages, eval=FALSE}
+install.packages("tidyverse")
+install.packages("lubridate")
+```
+```{r load-libraries}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(scales)
+```
+
+---
+
+# 2. Load Data
+
+## Load Activity Data (Folders A & B)
+```{r load-activity-A}
+# Load daily activity data from Folder A
+activity_A <- read.csv("FitBit/dailyActivity_merged_A.csv")
+
+# Explore the data
+head(activity_A)
+dim(activity_A)
+colnames(activity_A)
+summary(activity_A)
+```
+```{r load-activity-B}
+# Load daily activity data from Folder B
+activity_B <- read.csv("FitBit/dailyActivity_merged_B.csv")
+
+# Explore the data
+head(activity_B)
+dim(activity_B)
+colnames(activity_B)
+summary(activity_B)
+```
+
+## Load Sleep Data (Folder B)
+```{r load-sleep}
+# Load sleep data from Folder B
+sleep_B <- read.csv("FitBit/sleepDay_merged.csv")
+
+# Explore the data
+head(sleep_B)
+dim(sleep_B)
+colnames(sleep_B)
+summary(sleep_B)
+```
+
+---
+
+# 3. Data Cleaning
+
+## Verify Row Counts
+```{r verify-rows}
+nrow(activity_A)  # Should be 457
+nrow(activity_B)  # Should be 940  
+nrow(sleep_B)     # Should be 413
+```
+
+## Combine Activity Files
+```{r combine-activity}
+# Stack Folder A + Folder B
+activity_combined <- rbind(activity_A, activity_B)
+nrow(activity_combined)
+
+# Remove duplicates
+activity_combined <- distinct(activity_combined)
+nrow(activity_combined)
+```
+
+## Clean Sleep Data
+```{r clean-sleep}
+# Remove duplicates from sleep data
+sleep_clean <- distinct(sleep_B)
+
+# Standardise date formats
+sleep_clean$SleepDay <- mdy_hms(sleep_clean$SleepDay)
+sleep_clean$SleepDay <- as.Date(sleep_clean$SleepDay)
+activity_combined$ActivityDate <- mdy(activity_combined$ActivityDate)
+
+nrow(sleep_clean)
+```
+
+---
+
+# 4. User Coverage Analysis
+```{r user-coverage}
+# Get unique user IDs from each dataset
+activity_ids <- unique(activity_combined$Id)
+sleep_ids <- unique(sleep_clean$Id)
+
+# Check how many users are in BOTH datasets
+both <- intersect(activity_ids, sleep_ids)
+length(both)  # Users who tracked both activity AND sleep
+
+# Check how many users ONLY tracked activity
+only_activity <- setdiff(activity_ids, sleep_ids)
+length(only_activity)  # Users who only tracked activity
+
+# Check how many users ONLY tracked sleep
+only_sleep <- setdiff(sleep_ids, activity_ids)
+length(only_sleep)  # Users who only tracked sleep (if any)
+```
+
+**Finding:** 24 users tracked both activity and sleep. 11 users only tracked activity. 0 users only tracked sleep.
+
+---
+
+# 5. Activity Analysis
+
+## Initial Exploration
+```{r activity-summary}
+summary(activity_combined$TotalSteps)
+summary(activity_combined$SedentaryMinutes)
+```
+
+## Investigate Non-Wear Days
+```{r non-wear-investigation}
+# Investigate days with 0 step counts
+sum(activity_combined$TotalSteps == 0)
+mean(activity_combined$TotalSteps == 0) * 100
+
+# Investigate days with 1440 sedentary minutes
+sum(activity_combined$SedentaryMinutes == 1440)
+mean(activity_combined$SedentaryMinutes == 1440) * 100
+
+# Days with both 0 steps AND 1440 sedentary minutes
+sum(activity_combined$TotalSteps == 0 & activity_combined$SedentaryMinutes == 1440)
+```
+
+**Finding:** Approximately 11% of tracked days appear to be non-wear days.
+
+## Filter Out Non-Wear Days
+```{r filter-non-wear}
+# Remove non-wear days
+activity_wear <- subset(activity_combined, !(TotalSteps == 0 | SedentaryMinutes == 1440))
+
+nrow(activity_combined)
+nrow(activity_wear)
+```
+
+## Add Calculated Fields
+```{r add-calculated-fields}
+activity_wear <- activity_wear %>% 
+  mutate(
+    TotalActiveMinutes = VeryActiveMinutes + FairlyActiveMinutes + LightlyActiveMinutes,
+    TotalRecordedMinutes = SedentaryMinutes + TotalActiveMinutes
+  )
+```
+
+## Filter for Valid Wear Days (10+ hours)
+```{r filter-valid-wear}
+# Filter out days whose recorded minutes are less than 600 minutes (10 hours)
+activity_wear_2 <- activity_wear %>%
+  filter(TotalRecordedMinutes >= 600)
+```
+
+## Activity Patterns on Valid Wear Days
+```{r activity-patterns}
+summary(activity_wear_2$TotalSteps)
+summary(activity_wear_2$SedentaryMinutes)
+summary(activity_wear_2$VeryActiveMinutes)
+summary(activity_wear_2$FairlyActiveMinutes)
+summary(activity_wear_2$LightlyActiveMinutes)
+summary(activity_wear_2$TotalActiveMinutes)
+```
+
+## Step-Based Segments
+```{r step-segments}
+activity_wear_2 <- activity_wear_2 %>% 
+  mutate(step_segment = case_when(
+    TotalSteps < 5000 ~ "Low (<5k)",
+    TotalSteps < 10000 ~ "Moderate (5-10k)",
+    TRUE ~ "High (>10k)"
+  ))
+
+activity_wear_2 %>% 
+  count(step_segment) %>% 
+  mutate(percent = n / sum(n) * 100)
+```
+
+## User Engagement Analysis
+```{r user-engagement}
+activity_wear_2 %>% 
+  count(Id, name = "valid_days") %>% 
+  summarise(
+    users = n(),
+    min_days = min(valid_days),
+    q1_days = quantile(valid_days, 0.25),
+    median_days = median(valid_days),
+    mean_days = mean(valid_days),
+    q3_days = quantile(valid_days, 0.75),
+    max_days = max(valid_days)
+  )
+```
+
+---
+
+# 6. Sleep Analysis
+
+## Sleep Duration and Efficiency
+```{r sleep-duration}
+summary(sleep_clean$TotalMinutesAsleep)
+summary(sleep_clean$TotalTimeInBed)
+
+# Add efficiency column to sleep table
+sleep_clean <- sleep_clean %>% 
+  mutate(sleepEfficiency = TotalMinutesAsleep / TotalTimeInBed)
+
+summary(sleep_clean$sleepEfficiency)
+```
+
+## Sleep Tracking Engagement
+```{r sleep-engagement}
+sleep_by_user <- sleep_clean %>% 
+  group_by(Id) %>% 
+  summarize(nights_logged = n())
+
+summary(sleep_by_user$nights_logged)
+```
+
+---
+
+# 7. Activity vs Sleep Relationship
+```{r activity-sleep-join}
+# Join activity and sleep data
+activity_sleep <- activity_wear_2 %>% 
+  left_join(sleep_clean, by = c("Id", "ActivityDate" = "SleepDay"))
+
+# Count days with sleep records
+nrow(activity_sleep %>% filter(!is.na(TotalMinutesAsleep)))
+
+# Calculate correlation between steps and sleep
+activity_sleep %>%
+  filter(!is.na(TotalMinutesAsleep)) %>%
+  summarise(correlation = cor(TotalSteps, TotalMinutesAsleep))
+
+# Calculate correlation between active minutes and sleep
+activity_sleep %>%
+  filter(!is.na(TotalMinutesAsleep)) %>%
+  summarise(correlation = cor(TotalActiveMinutes, TotalMinutesAsleep))
+```
+
+**Finding:** Very weak correlation (r = -0.18) between daily steps and sleep duration.
+
+---
+
+# 8. Weekday vs Weekend Analysis
+```{r weekday-weekend}
+# Add weekday and day type columns
+activity_wear_2 <- activity_wear_2 %>% 
+  mutate(
+    weekday = wday(ActivityDate, label = TRUE),
+    day_type = ifelse(weekday %in% c("Sat", "Sun"), "Weekend", "Weekday")
+  )
+
+# Compare activity by day type
+activity_wear_2 %>%
+  group_by(day_type) %>%
+  summarise(
+    avg_steps = mean(TotalSteps),
+    avg_sedentary = mean(SedentaryMinutes),
+    avg_active = mean(TotalActiveMinutes),
+    avg_very_active = mean(VeryActiveMinutes),
+    avg_fairly_active = mean(FairlyActiveMinutes),
+    avg_light_active = mean(LightlyActiveMinutes),
+    days = n()
+  )
+```
+
+**Finding:** Users maintain stable activity patterns across weekdays and weekends.
+
+---
+
+# 9. Visualisations
+
+## Set Up Custom Theme
+```{r setup-theme}
+# Custom theme for consistency
+theme_fitbit <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0),
+    plot.subtitle = element_text(size = 11, colour = "grey40", hjust = 0),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 9),
+    legend.position = "top",
+    legend.title = element_text(size = 10, face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+colour_palette <- c("#00B8A9", "#F8B500", "#E84855")
+```
+
+## Chart 1: Step Distribution
+```{r chart1-steps, fig.width=10, fig.height=6}
+ggplot(activity_wear_2, aes(x = TotalSteps)) +
+  geom_histogram(binwidth = 1000, fill = "#00B8A9", color = "white", alpha = 0.8) +
+  geom_vline(xintercept = 5000, linetype = "dashed", color = "#E84855", size = 1) +
+  geom_vline(xintercept = 10000, linetype = "dashed", color = "#F8B500", size = 1) +
+  annotate("text", x = 2500, y = Inf, label = "Low", vjust = 2, color = "#E84855", fontface = "bold") +
+  annotate("text", x = 7500, y = Inf, label = "Moderate", vjust = 2, color = "#F8B500", fontface = "bold") +
+  annotate("text", x = 12500, y = Inf, label = "High", vjust = 2, color = "#00B8A9", fontface = "bold") +
+  scale_x_continuous(labels = comma) +
+  labs(
+    title = "Distribution of Daily Steps",
+    subtitle = "Most users achieve moderate activity levels (5k-10k steps)",
+    x = "Total Steps",
+    y = "Number of Days"
+  ) +
+  theme_fitbit
+
+ggsave("visualizations/daily_steps_distribution.png", width = 10, height = 6, dpi = 300)
+```
+
+## Chart 2: Weekday vs Weekend
+```{r chart2-weekday, fig.width=12, fig.height=5}
+# Prepare summary data
+weekday_summary <- activity_wear_2 %>% 
+  group_by(day_type) %>% 
+  summarise(
+    avg_steps = mean(TotalSteps),
+    avg_sedentary = mean(SedentaryMinutes),
+    avg_active = mean(TotalActiveMinutes)
+  ) %>% 
+  pivot_longer(cols = starts_with("avg_"),
+               names_to = "metric",
+               values_to = "value") %>% 
+  mutate(metric = case_when(
+    metric == "avg_steps" ~ "Average Steps",
+    metric == "avg_sedentary" ~ "Sedentary Minutes",
+    metric == "avg_active" ~ "Active Minutes"
+  ))
+
+ggplot(weekday_summary, aes(x = day_type, y = value, fill = day_type)) +
+  geom_col(alpha = 0.8) +
+  geom_text(aes(label = round(value, 0)), vjust = -0.5, size = 3.5, fontface = "bold") +
+  facet_wrap(~metric, scales = "free_y", ncol = 3) +
+  scale_fill_manual(values = c("Weekday" = "#00B8A9", "Weekend" = "#F8B500")) +
+  labs(
+    title = "Activity Patterns: Weekday vs Weekend",
+    subtitle = "Users maintain consistent activity regardless of day type",
+    x = NULL,
+    y = NULL,
+    fill = "Day Type"
+  ) +
+  theme_fitbit +
+  theme(strip.text = element_text(face = "bold", size = 10))
+
+ggsave("visualizations/weekday_weekend.png", width = 12, height = 5, dpi = 300)
+```
+
+## Chart 3: Activity Composition
+```{r chart3-composition, fig.width=12, fig.height=5}
+# Calculate average time spent in each activity level
+activity_composition <- activity_wear_2 %>% 
+  summarise(
+    Sedentary = mean(SedentaryMinutes),
+    `Lightly Active` = mean(LightlyActiveMinutes),
+    `Fairly Active` = mean(FairlyActiveMinutes),
+    `Very Active` = mean(VeryActiveMinutes)
+  ) %>%
+  pivot_longer(cols = everything(), names_to = "Activity_Level", values_to = "Minutes") %>% 
+  mutate(
+    Activity_Level = factor(Activity_Level,
+                           levels = c("Very Active", "Fairly Active", "Lightly Active", "Sedentary")),
+    label = ifelse(Minutes > 50, paste0(round(Minutes, 0), " min"), "")
+  )
+
+ggplot(activity_composition, aes(x = "", y = Minutes, fill = Activity_Level)) +
+  geom_col(width = 0.5) +
+  coord_flip() +
+  scale_fill_manual(values = c(
+    "Very Active" = "#00B8A9",
+    "Fairly Active" = "#88D8C0",
+    "Lightly Active" = "#FFE066",
+    "Sedentary" = "#E84855"
+  )) +
+  geom_text(aes(label = label),
+            position = position_stack(vjust = 0.5),
+            color = "white",
+            fontface = "bold",
+            size = 4) +
+  labs(
+    title = "Average Daily Activity Composition",
+    subtitle = "Breakdown of how users spend their tracked time",
+    x = NULL,
+    y = "Minutes per Day",
+    fill = "Activity Level"
+  ) +
+  theme_fitbit +
+  theme(axis.text.y = element_blank())
+
+ggsave("visualizations/activity_composition.png", width = 12, height = 5, dpi = 300)
+```
+
+## Chart 4: Sleep Efficiency
+```{r chart4-sleep, fig.width=10, fig.height=6}
+ggplot(sleep_clean, aes(x = "", y = sleepEfficiency)) +
+  geom_boxplot(fill = "#00B8A9", alpha = 0.6, width = 0.3, outlier.color = "#E84855") +
+  geom_jitter(alpha = 0.2, width = 0.1, color = "#00B8A9") +
+  geom_hline(yintercept = 0.85, linetype = "dashed", color = "#F8B500", size = 1) +
+  annotate("text", x = 1.3, y = 0.85, label = "85% (recommended)", 
+           color = "#F8B500", fontface = "bold", vjust = -0.5) +
+  scale_y_continuous(labels = percent) +
+  coord_flip() +
+  labs(
+    title = "Sleep Efficiency Distribution",
+    subtitle = "Ratio of time asleep vs. time in bed",
+    x = NULL,
+    y = "Sleep Efficiency"
+  ) +
+  theme_fitbit +
+  theme(axis.text.y = element_blank())
+
+ggsave("visualizations/sleep_efficiency.png", width = 10, height = 6, dpi = 300)
+```
+
+## Chart 5: Steps vs Sleep
+```{r chart5-correlation, fig.width=10, fig.height=6}
+activity_sleep_viz <- activity_sleep %>% 
+  filter(!is.na(TotalMinutesAsleep))
+
+ggplot(activity_sleep_viz, aes(x = TotalSteps, y = TotalMinutesAsleep / 60)) +
+  geom_point(alpha = 0.4, color = "#00B8A9", size = 2) +
+  geom_smooth(method = "lm", color = "#E84855", fill = "#E84855", alpha = 0.2) +
+  scale_x_continuous(labels = comma) +
+  labs(
+    title = "Relationship Between Daily Steps and Sleep Duration",
+    subtitle = paste0("Correlation: ",
+                      round(cor(activity_sleep_viz$TotalSteps,
+                                activity_sleep_viz$TotalMinutesAsleep), 3)),
+    x = "Total Steps",
+    y = "Hours of Sleep"
+  ) +
+  theme_fitbit
+
+ggsave("visualizations/steps_vs_sleep.png", width = 10, height = 6, dpi = 300)
+```
+
+## Chart 6: User Engagement
+```{r chart6-engagement, fig.width=10, fig.height=6}
+user_engagement <- activity_wear_2 %>% 
+  count(Id, name = "valid_days") %>% 
+  mutate(engagement_level = case_when(
+    valid_days < 10 ~ "Low (<10 days)",
+    valid_days < 20 ~ "Moderate (10-20 days)",
+    TRUE ~ "High (20+ days)"
+  ))
+
+ggplot(user_engagement, aes(x = valid_days)) +
+  geom_histogram(binwidth = 2, fill = "#00B8A9", color = "white", alpha = 0.8) +
+  geom_vline(xintercept = median(user_engagement$valid_days),
+             linetype = "dashed", color = "#F8B500", size = 1) +
+  annotate("text",
+           x = median(user_engagement$valid_days),
+           y = Inf,
+           label = paste0("Median: ", median(user_engagement$valid_days), " days"),
+           vjust = 1.5,
+           hjust = -0.1,
+           color = "#F8B500", 
+           fontface = "bold") +
+  labs(
+    title = "User Tracking Consistency",
+    subtitle = "Number of valid tracking days per user",
+    x = "Valid Tracking Days",
+    y = "Number of Users"
+  ) +
+  theme_fitbit
+  
+ggsave("visualizations/tracking_consistency.png", width = 10, height = 6, dpi = 300)
+```
+
+---
+
+# 10. Summary
+
+This analysis examined FitBit tracker data from 35 users over 2 months, revealing key insights about activity patterns, sleep behaviour, and device engagement that can inform Bellabeat's marketing strategy for the Leaf wellness tracker.
